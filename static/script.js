@@ -1,13 +1,18 @@
 // static/script.js
-
 var quiz; // Declare quiz variable in a scope accessible to event handler
-var mastered = [];
-var learning = [];
+var mastered = [];  // Set the mastered array to cero 
+var learning = [];  // Set the learning array to cero 
+var drillingMastered = 1; // Set the mastered words loop to the desired number 
+var drillingLearning = 2; // Set the learning words loop to the desired number
+var vocabularyStages = {
+  "easy-stage": "http://localhost:8080/dataset/category/easy-word",
+  "hard-stage": "http://localhost:8080/dataset/category/hard-word",
+};
 
-// Function to fetch dataSet from the API
-async function fetchData() {
+// Function to fetch dataSet from the API based on stage
+async function fetchData(stage) {
   try {
-    const response = await fetch('http://localhost:8080/dataset');
+    const response = await fetch(vocabularyStages[stage]);
     const data = await response.json();
     return data;
   } catch (error) {
@@ -27,19 +32,44 @@ function shuffleArray(array) {
   return array;
 }
 
-// Function to initialize the vocabulary builder
+// Function to initialize the vocabulary builder with stages
 async function initializeVocabularyBuilder() {
+  var currentStage = 0; // Index of current stage
+  var stages = Object.keys(vocabularyStages); // Array of stage keys
 
-  // Fetch dataSet from the API
-  var dataSet = await fetchData();
+  async function getNextStageData() {
+    if (currentStage < stages.length) {
+      var stageKey = stages[currentStage];
+      var dataSet = await fetchData(stageKey);
+      currentStage++;
+      return dataSet;
+    } else {
+      return null; // No more stages
+    }
+  }
 
-  function vocabularyBuilder() {
+  async function startNextStage() {
+    var dataSet = await getNextStageData();
+    if (dataSet !== null) {
+      mastered = [];
+      // Continue with the new dataSet
+      quiz = await vocabularyBuilder(dataSet); // Await the Promise here
+      //quiz.checkAnswer(0); // Start the quiz immediately
+    } else {
+      // No more stages, display completion message
+      alert("You have mastered all the vocabulary!");
+    }
+  }
+  
+  async function vocabularyBuilder(dataSet) {
+    console.log("Building quiz with dataSet:", dataSet);
+    var shuffledDataSet = shuffleArray(dataSet.slice()); // Make a copy of the original dataSet to shuffle
+
     var currentIndex = 0;
     var masteredIndex = 0;
     var learningIndex = 0;
     var masteredProgress = 0;
     var learningProgress = 0;
-    var shuffledDataSet = shuffleArray(dataSet.slice()); // Make a copy of the original dataSet to shuffle
 
     function displayQuestion() {
       var currentQuestion = shuffledDataSet[currentIndex];
@@ -47,7 +77,7 @@ async function initializeVocabularyBuilder() {
       var targetWord = currentQuestion.targetWord;
       var picturePath = currentQuestion.picture;
 
-       // Format the question string to make the target word bold
+      // Format the question string to make the target word bold
       var formattedQuestion = questionText.replace(targetWord, '<b>' + targetWord + '</b>');
 
       var questionTextElement = document.getElementById("question-text");
@@ -58,16 +88,16 @@ async function initializeVocabularyBuilder() {
 
       // Update progress counter
       var progressCounterElement = document.getElementById("progress-counter");
-      progressCounterElement.textContent = (currentIndex + 1) + "/" + shuffledDataSet.length; 
+      progressCounterElement.textContent = (currentIndex + 1) + "/" + shuffledDataSet.length;
 
       // Update mastered counter
-       var masteredCounterElement = document.getElementById("mastered-counter");
-       masteredCounterElement.textContent = mastered.length + "/" + shuffledDataSet.length; 
+      var masteredCounterElement = document.getElementById("mastered-counter");
+      masteredCounterElement.textContent = mastered.length + "/" + shuffledDataSet.length;
 
       // Update learning counter
       var learningCounterElement = document.getElementById("learning-counter");
       learningCounterElement.textContent = learning.length + "/" + shuffledDataSet.length;
-      
+
       // Update progress bar
       var progressBarElement = document.getElementById("progress-bar");
       var progress = ((currentIndex + 1) / shuffledDataSet.length) * 100; // Calculate progress percentage
@@ -80,58 +110,57 @@ async function initializeVocabularyBuilder() {
       // Update learning bar
       var learningBarElement = document.getElementById("learning-bar");
       learningBarElement.style.width = learningProgress + "%";
-      
+
       var answerElements = document.getElementsByName("answer");
       for (var i = 0; i < answerElements.length; i++) {
         answerElements[i].value = currentQuestion.answers[i]; // Set the value of the button
         answerElements[i].textContent = currentQuestion.answers[i]; // Set the text content of the button
       }
     }
-    
+
     function checkAnswer(selectedIndex) {
       var currentQuestion = shuffledDataSet[currentIndex];
       if (selectedIndex === currentQuestion.correct) {
-          //alert("Good job! The answer is correct!");
-          //shuffledDataSet.splice(currentIndex, 1); // Remove the correctly answered question from the array
+        masteredProgress = ((1 + masteredIndex++) * 1 / shuffledDataSet.length) * 100;
+        // Repeat pushing the current question into the mastered array
+        for (let i = 0; i < drillingMastered; i++) {
           mastered.push(currentQuestion);
-          masteredProgress = (( 1 + masteredIndex++) * 1 / shuffledDataSet.length) * 100;
+        }
       } else {
-          alert("The answer is incorrect!");
-          //shuffledDataSet.splice(currentIndex, 1); // Remove the correctly answered question from the array
+        // Repeat pushing the current question into the learning array
+        learningProgress = ((1 + learningIndex++) * 1 / shuffledDataSet.length) * 100;
+        for (let i = 0; i < drillingLearning; i++) {
           learning.push(currentQuestion);
-          learning.push(currentQuestion);
-          learningProgress = (( 1 + learningIndex++) * 1 / shuffledDataSet.length) * 100;
+        }
       }
 
-      // Move to the next question
       currentIndex++;
       if (currentIndex < shuffledDataSet.length) {
-          displayQuestion();
-      } else if (currentIndex === shuffledDataSet.length && learning.length > 0){
-          //alert("End of questions.");
-          shuffledDataSet = shuffleArray([...mastered, ...learning]);
-          currentIndex = 0; // Reset currentIndex to 0 if all questions have been answered once
-          masteredIndex = 0;
-          learningIndex = 0;
-          mastered = [];
-          learning = [];
-          masteredProgress = 0;
-          learningProgress = 0;
-          displayQuestion();
-      } else if (currentIndex = shuffledDataSet.length && learning.length === 0) {
-          alert("You have mastered all the vocabulary!");
-          } else {
-              console.log("something went wrong!")
-          }
+        displayQuestion();
+      } else if (currentIndex === shuffledDataSet.length && learning.length > 0) {
+        shuffledDataSet = shuffleArray([...mastered, ...learning]);
+        currentIndex = 0;
+        masteredIndex = 0;
+        learningIndex = 0;
+        mastered = [];
+        learning = [];
+        masteredProgress = 0;
+        learningProgress = 0;
+        displayQuestion();
+      } else if (currentIndex === shuffledDataSet.length && learning.length === 0) {
+        startNextStage(); // Move to the next stage
+      } else {
+        console.log("something went wrong!");
+      }
+       // Print the updated array with elements ordered to be presented to the user
+       console.log("Mastered:");
+       console.log(mastered);
+       console.log("Learning:");
+       console.log(learning);
+       console.log("Shuffled Data Set:");
+       console.log(shuffledDataSet);
 
-      // Print the updated array with elements ordered to be presented to the user
-      //console.log("Mastered:");
-      //console.log(mastered);
-      //console.log("Learning:");
-      //console.log(learning);
-      //console.log("Shuffled Data Set:");
-      //console.log(shuffledDataSet);
-  }
+    }
 
     displayQuestion();
 
@@ -139,139 +168,12 @@ async function initializeVocabularyBuilder() {
       checkAnswer: checkAnswer
     };
   }
-  quiz = vocabularyBuilder(); // Assign quiz variable here
+
+  // Start with the first stage
+  await startNextStage();
 }
 
 // Initialize the vocabulary builder
 initializeVocabularyBuilder();
 
-/*
-var dataSet = [
-  {
-    id: 1,
-    category: "easy-word",
-    question: "This farm yielded very well this year.",
-    targetWord: "yielded",
-    picture: "https://images.pexels.com/photos/22192200/pexels-photo-22192200/free-photo-of-farm-yielded-very-well.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    answers: [
-      "produced",
-      "performed",
-      "showed",
-      "fell down"
-    ],
-    correct: 0
-  },
-  {
-    id: 2,
-    category: "hard-word",
-    question: "Jannet didn't appreciate her boss's dig about her hairstyle.",
-    targetWord: "dig",
-    picture: "https://images.pexels.com/photos/22194116/pexels-photo-22194116.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    answers: [
-      "critic",
-      "compliment",
-      "hole",
-      "critical remark"
-    ],
-    correct: 3
-  },
-  {
-    id: 3,
-    category: "easy-word",
-    question: "The assistant ushered the visitor to the boss's office",
-    targetWord: "ushered",
-    picture: "https://images.pexels.com/photos/22468285/pexels-photo-22468285.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    answers: [
-      "asked",
-      "showed",
-      "walked someone to position",
-      "assigned"
-    ],
-    correct: 2
-  },
-  {
-    id: 4,
-    category: "easy-word",
-    question: "American officials are fearful of upending trade negotiations since they could be harmful ",
-    targetWord: "upending",
-    picture: "trade_negotiations.jpg",
-    answers: [
-      "v. improving",
-      "v. denying",
-      "v. cutting",
-      "v. changing drastically"
-    ],
-    correct: 3
-  },
-  {
-    id: 5,
-    category: "easy-word",
-    question: "Elizabeth always dithers for a while before she acts",
-    targetWord: "dithers",
-    picture: "elizabeth_dithers.jpg",
-    answers: [
-      "v. thinks",
-      "v. hesitates",
-      "v. forgets",
-      "v. speaks"
-    ],
-    correct: 1
-  },
-  {
-    id: 6,
-    category: "hard-word",
-    question: "Huawei, a telecoms giant, is in the blacklist since May over concerns that Chinese spooks use its gears to spy on America.",
-    targetWord: "spooks",
-    picture: "https://static.tvtropes.org/pmwiki/pub/images/origins_keyser_soze_the_unknown_foreigner_397373.png",
-    answers: [
-      "n. watcher",
-      "n. worker",
-      "n. spy",
-      "n. soldier"
-    ],
-    correct: 2
-  },
-  {
-    id: 7,
-    category: "hard-word",
-    question: "Huawei have been hoarding parts in anticipation of a ban and have sought other suppliers",
-    targetWord: "hoarding",
-    picture: "https://content.jdmagicbox.com/comp/indore/z7/0731px731.x731.140130184531.j8z7/catalogue/suvidha-automobiles-rnt-road-indore-automobile-part-dealers-maruti-1obcwk1w2j.jpg",
-    answers: [
-      "v. keeping for future",
-      "v. wasting",
-      "v. needing",
-      "v. buying"
-    ],
-    correct: 0
-  },
-  {
-    id: 8,
-    category: "hard-word",
-    question: "A shortfall in recruitment led to the company being understaffed  ",
-    targetWord: "shortfall",
-    picture: "shortfall_recruitment.jpg",
-    answers: [
-      "n. abundance",
-      "n. deficit, less than needed",
-      "n. ware",
-      "n. team"
-    ],
-    correct: 1
-  },
-  {
-    id: 9,
-    category: "hard-word",
-    question: "I think it's important not to downplay the significance of the event.",
-    targetWord: "downplay",
-    picture: "downplay_event.jpg",
-    answers: [
-      "v. play carefully",
-      "v. enhance",
-      "v. play hard",
-      "v. minimize importance of"
-    ],
-    correct: 3
-  }
-];
-*/
+

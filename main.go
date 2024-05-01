@@ -39,7 +39,7 @@ func main() {
 	// Define API endpoints
 	r.HandleFunc("/dataset", getDataSet).Methods("GET")
 	r.HandleFunc("/dataset/{id}", getDataSetByID).Methods("GET")
-	r.HandleFunc("/dataset/{category}", getDataSetByCategory).Methods("GET")
+	r.HandleFunc("/dataset/category/{category}", getDataSetByCategory).Methods("GET")
 	r.HandleFunc("/dataset", createDataSet).Methods("POST")
 	r.HandleFunc("/dataset/{id}", updateDataSet).Methods("PUT")
 	r.HandleFunc("/dataset/{id}", deleteDataSet).Methods("DELETE")
