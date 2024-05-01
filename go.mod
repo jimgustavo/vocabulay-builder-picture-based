@@ -1,4 +1,4 @@
-module vocabulary-builder-by-stages
+module vocabulary-builder-picture-based
 
 go 1.19
 

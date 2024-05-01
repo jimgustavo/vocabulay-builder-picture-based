@@ -14,7 +14,14 @@ async function fetchData(stage) {
   try {
     const response = await fetch(vocabularyStages[stage]);
     const data = await response.json();
-    return data;
+    return data.map(item => ({
+      id: item.id,
+      question: item.question,
+      targetWord: item.targetWord,
+      correct: item.correct,
+      answerImages: Object.values(item.answers),
+      answers: Object.keys(item.answers)
+    }));
   } catch (error) {
     console.error('Error fetching dataSet:', error);
     return [];
@@ -71,52 +78,53 @@ async function initializeVocabularyBuilder() {
     var masteredProgress = 0;
     var learningProgress = 0;
 
-    function displayQuestion() {
-      var currentQuestion = shuffledDataSet[currentIndex];
-      var questionText = currentQuestion.question;
-      var targetWord = currentQuestion.targetWord;
-      var picturePath = currentQuestion.picture;
+    // Update the displayQuestion function to remove text content setting for answer buttons
 
-      // Format the question string to make the target word bold
-      var formattedQuestion = questionText.replace(targetWord, '<b>' + targetWord + '</b>');
+// Update the displayQuestion function to correctly display the answers with images
+function displayQuestion() {
+  var currentQuestion = shuffledDataSet[currentIndex];
+  var questionText = currentQuestion.question;
+  var targetWord = currentQuestion.targetWord;
 
-      var questionTextElement = document.getElementById("question-text");
-      questionTextElement.innerHTML = formattedQuestion;
+  // Format the question string to make the target word bold
+  var formattedQuestion = questionText.replace(targetWord, '<b>' + targetWord + '</b>');
 
-      var questionImageElement = document.getElementById("question-image");
-      questionImageElement.src = picturePath;
+  var questionTextElement = document.getElementById("question-text");
+  questionTextElement.innerHTML = formattedQuestion;
 
-      // Update progress counter
-      var progressCounterElement = document.getElementById("progress-counter");
-      progressCounterElement.textContent = (currentIndex + 1) + "/" + shuffledDataSet.length;
+  // Update progress counter
+  var progressCounterElement = document.getElementById("progress-counter");
+  progressCounterElement.textContent = (currentIndex + 1) + "/" + shuffledDataSet.length;
 
-      // Update mastered counter
-      var masteredCounterElement = document.getElementById("mastered-counter");
-      masteredCounterElement.textContent = mastered.length + "/" + shuffledDataSet.length;
+  // Update mastered counter
+  var masteredCounterElement = document.getElementById("mastered-counter");
+  masteredCounterElement.textContent = mastered.length + "/" + shuffledDataSet.length;
 
-      // Update learning counter
-      var learningCounterElement = document.getElementById("learning-counter");
-      learningCounterElement.textContent = learning.length + "/" + shuffledDataSet.length;
+  // Update learning counter
+  var learningCounterElement = document.getElementById("learning-counter");
+  learningCounterElement.textContent = learning.length + "/" + shuffledDataSet.length;
 
-      // Update progress bar
-      var progressBarElement = document.getElementById("progress-bar");
-      var progress = ((currentIndex + 1) / shuffledDataSet.length) * 100; // Calculate progress percentage
-      progressBarElement.style.width = progress + "%";
+  // Update progress bar
+  var progressBarElement = document.getElementById("progress-bar");
+  var progress = ((currentIndex + 1) / shuffledDataSet.length) * 100; // Calculate progress percentage
+  progressBarElement.style.width = progress + "%";
 
-      // Update mastered bar
-      var masteredBarElement = document.getElementById("mastered-bar");
-      masteredBarElement.style.width = masteredProgress + "%";
+  // Update mastered bar
+  var masteredBarElement = document.getElementById("mastered-bar");
+  masteredBarElement.style.width = masteredProgress + "%";
 
-      // Update learning bar
-      var learningBarElement = document.getElementById("learning-bar");
-      learningBarElement.style.width = learningProgress + "%";
+  // Update learning bar
+  var learningBarElement = document.getElementById("learning-bar");
+  learningBarElement.style.width = learningProgress + "%";
 
-      var answerElements = document.getElementsByName("answer");
-      for (var i = 0; i < answerElements.length; i++) {
-        answerElements[i].value = currentQuestion.answers[i]; // Set the value of the button
-        answerElements[i].textContent = currentQuestion.answers[i]; // Set the text content of the button
-      }
-    }
+  // Display answers with images
+  var answerElements = document.getElementsByClassName("answer-button");
+  for (var i = 0; i < answerElements.length; i++) {
+    var imgElement = answerElements[i].querySelector("img");
+    imgElement.src = currentQuestion.answerImages[i]; // Set the src attribute of the image
+    imgElement.alt = currentQuestion.answers[i]; // Set the alt attribute of the image
+  }
+}
 
     function checkAnswer(selectedIndex) {
       var currentQuestion = shuffledDataSet[currentIndex];

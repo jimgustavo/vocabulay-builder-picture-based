@@ -9,18 +9,17 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 // Define a struct to represent a single dataset item
 type DataSet struct {
-	ID         int      `json:"id"`
-	Category   string   `json:"category"`
-	Question   string   `json:"question"`
-	TargetWord string   `json:"targetWord"`
-	Picture    string   `json:"picture"`
-	Answers    []string `json:"answers"`
-	Correct    int      `json:"correct"`
+	ID         int               `json:"id"`
+	Category   string            `json:"category"`
+	Question   string            `json:"question"`
+	TargetWord string            `json:"targetWord"`
+	Answers    map[string]string `json:"answers"`
+	Correct    int               `json:"correct"`
 }
 
 var db *sql.DB
@@ -28,7 +27,7 @@ var db *sql.DB
 func main() {
 	// Initialize database connection
 	var err error
-	db, err = sql.Open("postgres", "postgres://tavito:mamacita@localhost:5432/data_set?sslmode=disable")
+	db, err = sql.Open("postgres", "postgres://tavito:mamacita@localhost:5432/data_set_pb?sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,10 +50,9 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
-// Handler functions
 func getDataSet(w http.ResponseWriter, r *http.Request) {
 	// Query all dataset items from the database
-	rows, err := db.Query("SELECT id, category, question, targetWord, picture, answers, correct FROM data_set")
+	rows, err := db.Query("SELECT id, category, question, targetWord, answers, correct FROM data_set")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -65,8 +63,13 @@ func getDataSet(w http.ResponseWriter, r *http.Request) {
 	var dataset []DataSet
 	for rows.Next() {
 		var item DataSet
-		err := rows.Scan(&item.ID, &item.Category, &item.Question, &item.TargetWord, &item.Picture, pq.Array(&item.Answers), &item.Correct)
+		var answersJSON []byte
+		err := rows.Scan(&item.ID, &item.Category, &item.Question, &item.TargetWord, &answersJSON, &item.Correct)
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := json.Unmarshal(answersJSON, &item.Answers); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -92,14 +95,19 @@ func getDataSetByID(w http.ResponseWriter, r *http.Request) {
 
 	// Query the dataset item from the database by ID
 	var dataset DataSet
-	query := "SELECT category, question, targetWord, picture, answers, correct FROM data_set WHERE id = $1"
-	err = db.QueryRow(query, id).Scan(&dataset.Category, &dataset.Question, &dataset.TargetWord, &dataset.Picture, pq.Array(&dataset.Answers), &dataset.Correct)
+	var answersJSON []byte
+	query := "SELECT category, question, targetWord, answers, correct FROM data_set WHERE id = $1"
+	err = db.QueryRow(query, id).Scan(&dataset.Category, &dataset.Question, &dataset.TargetWord, &answersJSON, &dataset.Correct)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Dataset item not found", http.StatusNotFound)
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+		return
+	}
+	if err := json.Unmarshal(answersJSON, &dataset.Answers); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -115,7 +123,7 @@ func getDataSetByCategory(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Received request to fetch dataset for category: %s\n", category)
 
 	// Query dataset items from the database by category
-	rows, err := db.Query("SELECT id, question, targetWord, picture, answers, correct FROM data_set WHERE category = $1", category)
+	rows, err := db.Query("SELECT id, question, targetWord, answers, correct FROM data_set WHERE category = $1", category)
 	if err != nil {
 		log.Printf("Error querying database: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -127,9 +135,15 @@ func getDataSetByCategory(w http.ResponseWriter, r *http.Request) {
 	var dataset []DataSet
 	for rows.Next() {
 		var item DataSet
-		err := rows.Scan(&item.ID, &item.Question, &item.TargetWord, &item.Picture, pq.Array(&item.Answers), &item.Correct)
+		var answersJSON []byte
+		err := rows.Scan(&item.ID, &item.Question, &item.TargetWord, &answersJSON, &item.Correct)
 		if err != nil {
 			log.Printf("Error scanning row: %v\n", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := json.Unmarshal(answersJSON, &item.Answers); err != nil {
+			log.Printf("Error unmarshaling answers JSON: %v\n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -156,10 +170,17 @@ func createDataSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Marshal the Answers field to JSON
+	answersJSON, err := json.Marshal(dataset.Answers)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Insert the dataset item into the database
 	query := `
-        INSERT INTO data_set (category, question, targetWord, picture, answers, correct )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO data_set (category, question, targetWord, answers, correct )
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id
     `
 	var id int
@@ -168,8 +189,7 @@ func createDataSet(w http.ResponseWriter, r *http.Request) {
 		dataset.Category,
 		dataset.Question,
 		dataset.TargetWord,
-		dataset.Picture,
-		pq.Array(dataset.Answers),
+		answersJSON,
 		dataset.Correct,
 	).Scan(&id)
 	if err != nil {
@@ -204,21 +224,28 @@ func updateDataSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Marshal the Answers field to JSON
+	answersJSON, err := json.Marshal(dataset.Answers)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Log the received dataset
 	log.Printf("Received dataset: %+v", dataset)
 
 	// Update the dataset item in the database
 	query := `
         UPDATE data_set
-        SET question = $1, targetWord = $2, picture = $3, answers = $4, correct = $5
+        SET category = $1, question = $2, targetWord = $3, answers = $4, correct = $5
         WHERE id = $6
     `
 	_, err = db.Exec(
 		query,
+		dataset.Category,
 		dataset.Question,
 		dataset.TargetWord,
-		dataset.Picture,
-		pq.Array(dataset.Answers),
+		answersJSON,
 		dataset.Correct,
 		id,
 	)
@@ -263,71 +290,54 @@ psql
 
 \l
 
-CREATE DATABASE data_set;
+CREATE DATABASE data_set_pb;
 
-DROP DATABASE data_set;     //for deleting a database
+DROP DATABASE data_set_pb;     //for deleting a database
 
-\c data_set
+\c data_set_pb
 
 pwd
 
-\i /Users/tavito/Documents/go/vocabulary-builder-with-picture/data_set.sql
+\i /Users/tavito/Documents/go/vocabulary-builder-picture-based/data_set_pb.sql
 
 \dt
 
 
 ////////////////Curl Commands///////////////////
-
 curl -X POST \
-  -H "Content-Type: application/json" \
+  http://localhost:8080/dataset \
+  -H 'Content-Type: application/json' \
   -d '{
-    "id": 7,
-    "category": "hard-word",
-    "question": "Huawei have been hoarding parts in anticipation of a ban and have sought other suppliers",
-    "targetWord": "hoarding",
-    "picture": "https://www.shutterstock.com/shutterstock/photos/1363334219/display_1500/stock-photo-carlos-barbosa-rio-grande-do-sul-brasil-april-interior-of-auto-parts-store-1363334219.jpg",
-    "answers": [
-      "v. keeping for future",
-      "v. wasting",
-      "v. needing",
-      "v. buying"
-    ],
-    "correct": 0
-  }' \
-  http://localhost:8080/dataset
-
-
-curl -X PUT -H "Content-Type: application/json" -d '{
-    "question": "Updated question",
-    "targetWord": "updated";2B,
-    "picture": "https://example.com/updated.jpg",
-    "answers": ["updated answer 1", "updated answer 2", "updated answer 3", "updated answer 4"],
-    "correct": 1
-}' http://localhost:8080/dataset/6
+	"category": "easy-word",
+	"question": "This farm yielded very well this year.",
+	"targetWord": "yieldedssss",
+	"answers": {
+		"produced": "https://bloglatam.jacto.com/wp-content/uploads/2022/04/cultivo-de-tomate.jpg",
+		"dry": "https://cdn.diariojornada.com.ar/imagenes/2021/12/25/555449_5659.jpg",
+		"sell": "https://s3.envato.com/files/250543034/preview.jpg",
+		"fire": "https://www.shutterstock.com/image-photo/wildfire-on-wheat-field-stubble-600nw-1916978717.jpg"
+	},
+	"correct": 0
+}'
 
 curl -X PUT \
-  -H "Content-Type: application/json" \
+  http://localhost:8080/dataset/4 \
+  -H 'Content-Type: application/json' \
   -d '{
-    "question": "Huawei have been hoarding parts in anticipation of a ban and have sought other suppliers",
-    "targetWord": "hoarding",
-    "picture": "https://www.shutterstock.com/shutterstock/photos/1363334219/display_1500/stock-photo-carlos-barbosa-rio-grande-do-sul-brasil-april-interior-of-auto-parts-store-1363334219.jpg",
-    "answers": [
-      "v. keeping for future",
-      "v. wasting",
-      "v. needing",
-      "v. buying"
-    ],
-    "correct": 0
-  }' \
-  http://localhost:8080/dataset/6
+"id": 4,
+"category": "hard-word",
+"question": "This farm dry very well this year.",
+"targetWord": "dry",
+"answers": {
+"dry": "https://cdn.diariojornada.com.ar/imagenes/2021/12/25/555449_5659.jpg",
+"fire": "https://www.shutterstock.com/image-photo/wildfire-on-wheat-field-stubble-600nw-1916978717.jpg",
+"produced": "https://bloglatam.jacto.com/wp-content/uploads/2022/04/cultivo-de-tomate.jpg",
+"sell": "https://s3.envato.com/files/250543034/preview.jpg"
+},
+"correct": 0
+}'
 
-
-
-curl -X GET \
-  'http://localhost:8080/dataset/easy-word'
-
-
-curl -X DELETE http://localhost:8080/dataset/1
+curl -X DELETE http://localhost:8080/dataset/5
 
 
 */

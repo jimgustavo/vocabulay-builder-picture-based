@@ -1,3 +1,5 @@
+// static/manage-vocabulary.js
+
 // Function to fetch dataset items from the server
 async function fetchDatasetItems() {
     try {
@@ -88,26 +90,17 @@ async function updateDatasetItem(id) {
         targetWordInput.value = currentItem.targetWord;
         updateForm.appendChild(targetWordInput);
 
-        // Picture
-        const pictureLabel = document.createElement("label");
-        pictureLabel.textContent = "Picture URL:";
-        updateForm.appendChild(pictureLabel);
-
-        const pictureInput = document.createElement("input");
-        pictureInput.type = "text";
-        pictureInput.value = currentItem.picture;
-        updateForm.appendChild(pictureInput);
 
         // Answers
-        for (let i = 0; i < 4; i++) {
+        for (let key in currentItem.answers) {
             const answerLabel = document.createElement("label");
-            answerLabel.textContent = `Answer ${i + 1}:`;
+            answerLabel.textContent = `${key}:`;
             updateForm.appendChild(answerLabel);
 
             const answerInput = document.createElement("input");
             answerInput.type = "text";
-            answerInput.value = currentItem.answers[i] || ""; // Set value if exists, otherwise default to empty string
-            answerInput.classList.add("answer-input"); // Add class to identify answer inputs
+            answerInput.value = currentItem.answers[key];
+            answerInput.name = key;
             updateForm.appendChild(answerInput);
         }
 
@@ -130,14 +123,18 @@ async function updateDatasetItem(id) {
         updateForm.addEventListener("submit", async function(event) {
             event.preventDefault();
 
-            const updatedData = {
+            const formData = {
                 category: categoryInput.value,
                 question: questionInput.value,
                 targetWord: targetWordInput.value,
-                picture: pictureInput.value,
-                answers: [...updateForm.querySelectorAll(".answer-input")].map(input => input.value),
+                answers: {},
                 correct: parseInt(correctInput.value)
             };
+
+            // Assign values from answer inputs to formData.answers object
+            for (let key in currentItem.answers) {
+                formData.answers[key] = updateForm.elements[key].value;
+            }
 
             try {
                 const updateResponse = await fetch(`http://localhost:8080/dataset/${id}`, {
@@ -145,7 +142,7 @@ async function updateDatasetItem(id) {
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify(updatedData)
+                    body: JSON.stringify(formData)
                 });
 
                 if (updateResponse.ok) {
@@ -195,17 +192,16 @@ displayDatasetItems();
 document.getElementById("datasetForm").addEventListener("submit", async function(event) {
     event.preventDefault();
 
-    var formData = {
+    const formData = {
         category: document.getElementById("category").value,
         question: document.getElementById("question").value,
         targetWord: document.getElementById("targetWord").value,
-        picture: document.getElementById("picture").value,
-        answers: [
-            document.getElementById("answer1").value,
-            document.getElementById("answer2").value,
-            document.getElementById("answer3").value,
-            document.getElementById("answer4").value
-        ],
+        answers: {
+            [document.getElementById("answer1Text").value]: document.getElementById("answer1Image").value,
+            [document.getElementById("answer2Text").value]: document.getElementById("answer2Image").value,
+            [document.getElementById("answer3Text").value]: document.getElementById("answer3Image").value,
+            [document.getElementById("answer4Text").value]: document.getElementById("answer4Image").value
+        },
         correct: parseInt(document.getElementById("correct").value)
     };
 
@@ -236,4 +232,3 @@ document.getElementById("datasetForm").addEventListener("submit", async function
         document.getElementById("message").innerText = "Error: Failed to add dataset item.";
     }
 });
-

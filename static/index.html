@@ -10,7 +10,20 @@
   <div class="container">
     <div class="question-container">
       <div id="question-text"></div>
-      <img id="question-image" src="" alt="Question Image">
+      <div class="answer-container">
+        <button class="answer-button" onclick="quiz.checkAnswer(0)">
+          <img src="" alt="Answer 1">
+        </button>
+        <button class="answer-button" onclick="quiz.checkAnswer(1)">
+          <img src="" alt="Answer 2">
+        </button>
+        <button class="answer-button" onclick="quiz.checkAnswer(2)">
+          <img src="" alt="Answer 3">
+        </button>
+        <button class="answer-button" onclick="quiz.checkAnswer(3)">
+          <img src="" alt="Answer 4">
+        </button>
+      </div>
       <code>Data Set:</code>
       <div id="progress-counter"></div>
       <div class="progress-bar-container">
@@ -27,15 +40,7 @@
         <div id="learning-bar"></div>
       </div>    
     </div>
-    <div class="answer-container">
-      <input type="button" class="answer-button" name="answer" onclick="quiz.checkAnswer(0)">
-      <input type="button" class="answer-button" name="answer" onclick="quiz.checkAnswer(1)">
-      <input type="button" class="answer-button" name="answer" onclick="quiz.checkAnswer(2)">
-      <input type="button" class="answer-button" name="answer" onclick="quiz.checkAnswer(3)">
-    </div>
   </div>
   <script src="script.js"></script>
 </body>
 </html>
-
-

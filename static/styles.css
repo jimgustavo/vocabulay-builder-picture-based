@@ -14,7 +14,6 @@ body {
   border-radius: 10px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   padding: 20px;
-  max-width: 800px; /* Limit container width */
   width: 90%; /* Set container width */
 }
 
@@ -22,14 +21,6 @@ body {
   font-size: 1.2em;
   margin-bottom: 20px;
   text-align: center; /* Center-align the text */
-}
-
-
-#question-image {
-  max-width: 25%; /* Set image width to 25% of screen */
-  height: auto; /* Maintain aspect ratio */
-  margin: 20px auto 20px; /* Center horizontally and add bottom margin */
-  display: block; /* Ensure the image is displayed as a block element */
 }
 
 .progress-bar-container {
@@ -64,27 +55,27 @@ body {
 .answer-container {
   display: flex;
   justify-content: center;
+  width: 100%;
 }
 
 .answer-button {
-  margin-right: 10px;
-  padding: 10px 20px;
-  font-size: 1em;
-  cursor: pointer;
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
+  margin: 10px; /* Add some margin around each button */
+  width: 30%; /* Set initial width to 25% of screen */
+  height: auto; /* Automatically adjust height to maintain aspect ratio */
 }
 
-.answer-button:hover {
-  background-color: #0056b3;
+.answer-button img {
+  width: 100%; /* Set image width to 100% of button's width */
+  height: auto; /* Automatically adjust height to maintain aspect ratio */
 }
 
-.answer-button:last-child {
-  margin-right: 0;
+/* Media Query for smaller screens */
+@media (max-width: 600px) {
+  .answer-button {
+    width: 40%; /* Adjust button width for smaller devices */
+  }
 }
+
 
 /* Media Query for smaller screens */
 @media (max-width: 600px) {
