@@ -47,7 +47,14 @@
     
     <p id="message"></p>
     <h1>Dataset Items</h1>
-    <div id="datasetContainer"></div>
+    
+    <select id="categoryFilter" onchange="filterByCategory()">
+        <option value="">All</option>
+        <!-- Dynamically populated options will be added here -->
+    </select>
+
+    <div id="datasetContainer" class="dataset-container"></div>
+
 
     <script src="manage-vocabulary.js"></script>
 </body>

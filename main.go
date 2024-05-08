@@ -40,6 +40,8 @@ func main() {
 	r.HandleFunc("/dataset/{id}", getDataSetByID).Methods("GET")
 	r.HandleFunc("/dataset/category/{category}", getDataSetByCategory).Methods("GET")
 	r.HandleFunc("/dataset", createDataSet).Methods("POST")
+	r.HandleFunc("/dataset/batch", createDataSetBatch).Methods("POST")
+	r.HandleFunc("/dataset/{id}/duplicate", duplicateDataSetByID).Methods("POST")
 	r.HandleFunc("/dataset/{id}", updateDataSet).Methods("PUT")
 	r.HandleFunc("/dataset/{id}", deleteDataSet).Methods("DELETE")
 
@@ -202,6 +204,105 @@ func createDataSet(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func createDataSetBatch(w http.ResponseWriter, r *http.Request) {
+	// Decode the request body into a slice of DataSet structs
+	var datasets []DataSet
+	err := json.NewDecoder(r.Body).Decode(&datasets)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Iterate over each DataSet object in the slice and insert into the database
+	for _, dataset := range datasets {
+		// Marshal the Answers field to JSON
+		answersJSON, err := json.Marshal(dataset.Answers)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Insert the dataset item into the database
+		query := `
+            INSERT INTO data_set (category, question, targetWord, answers, correct )
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+        `
+		var id int
+		err = db.QueryRow(
+			query,
+			dataset.Category,
+			dataset.Question,
+			dataset.TargetWord,
+			answersJSON,
+			dataset.Correct,
+		).Scan(&id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Log the ID of the newly created dataset item
+		log.Printf("Created dataset item with ID: %d\n", id)
+	}
+
+	// Respond with success message
+	w.WriteHeader(http.StatusCreated)
+	fmt.Fprintf(w, "Batch of dataset items created successfully")
+}
+
+func duplicateDataSetByID(w http.ResponseWriter, r *http.Request) {
+	// Extract the dataset ID from the request URL
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid dataset ID", http.StatusBadRequest)
+		return
+	}
+
+	// Query the dataset item from the database by ID
+	var dataset DataSet
+	var answersJSON []byte
+	query := "SELECT category, question, targetWord, answers, correct FROM data_set WHERE id = $1"
+	err = db.QueryRow(query, id).Scan(&dataset.Category, &dataset.Question, &dataset.TargetWord, &answersJSON, &dataset.Correct)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Dataset item not found", http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	if err := json.Unmarshal(answersJSON, &dataset.Answers); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Insert the duplicated dataset item into the database
+	query = `
+        INSERT INTO data_set (category, question, targetWord, answers, correct)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
+    `
+	var newID int
+	err = db.QueryRow(
+		query,
+		dataset.Category,
+		dataset.Question,
+		dataset.TargetWord,
+		answersJSON,
+		dataset.Correct,
+	).Scan(&newID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the ID of the newly duplicated dataset item
+	response := map[string]int{"id": newID}
+	json.NewEncoder(w).Encode(response)
+}
+
 func updateDataSet(w http.ResponseWriter, r *http.Request) {
 	// Log that the updateDataSet handler function has been called
 	log.Println("updateDataSet handler function called")
@@ -339,5 +440,59 @@ curl -X PUT \
 
 curl -X DELETE http://localhost:8080/dataset/5
 
+curl -X POST -H "Content-Type: application/json" -d '[
+	{
+		"id": 10,
+		"category": "flinstones-characters",
+		"question": "he is Fred",
+		"targetWord": "Fred",
+		"answers": {
+		"barney": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e2/Barney_Rubble.png/160px-Barney_Rubble.png",
+		"betty": "https://upload.wikimedia.org/wikipedia/en/5/5e/Betty_Rubble.png",
+		"fred": "https://upload.wikimedia.org/wikipedia/en/a/ad/Fred_Flintstone.png",
+		"wilma": "https://upload.wikimedia.org/wikipedia/en/9/97/Wilma_Flintstone.png"
+		},
+		"correct": 2
+	},
+	{
+		"id": 11,
+		"category": "flinstones-characters",
+		"question": "he is Barney",
+		"targetWord": "Barney",
+		"answers": {
+		"barney": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e2/Barney_Rubble.png/160px-Barney_Rubble.png",
+		"betty": "https://upload.wikimedia.org/wikipedia/en/5/5e/Betty_Rubble.png",
+		"fred": "https://upload.wikimedia.org/wikipedia/en/a/ad/Fred_Flintstone.png",
+		"wilma": "https://upload.wikimedia.org/wikipedia/en/9/97/Wilma_Flintstone.png"
+		},
+		"correct": 0
+	},
+	{
+		"id": 12,
+		"category": "flinstones-characters",
+		"question": "she is Wilma",
+		"targetWord": "Wilma",
+		"answers": {
+		"barney": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e2/Barney_Rubble.png/160px-Barney_Rubble.png",
+		"betty": "https://upload.wikimedia.org/wikipedia/en/5/5e/Betty_Rubble.png",
+		"fred": "https://upload.wikimedia.org/wikipedia/en/a/ad/Fred_Flintstone.png",
+		"wilma": "https://upload.wikimedia.org/wikipedia/en/9/97/Wilma_Flintstone.png"
+		},
+		"correct": 3
+	},
+	{
+		"id": 13,
+		"category": "flinstones-characters",
+		"question": "she is Betty",
+		"targetWord": "Betty",
+		"answers": {
+		"barney": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e2/Barney_Rubble.png/160px-Barney_Rubble.png",
+		"betty": "https://upload.wikimedia.org/wikipedia/en/5/5e/Betty_Rubble.png",
+		"fred": "https://upload.wikimedia.org/wikipedia/en/a/ad/Fred_Flintstone.png",
+		"wilma": "https://upload.wikimedia.org/wikipedia/en/9/97/Wilma_Flintstone.png"
+		},
+		"correct": 1
+	}
+]' http://localhost:8080/dataset/batch
 
 */

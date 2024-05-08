@@ -60,13 +60,13 @@ body {
 
 .answer-button {
   margin: 10px; /* Add some margin around each button */
-  width: 30%; /* Set initial width to 25% of screen */
+  width: 25%; /* Set initial width to 25% of screen */
   height: auto; /* Automatically adjust height to maintain aspect ratio */
 }
 
 .answer-button img {
-  width: 100%; /* Set image width to 100% of button's width */
-  height: auto; /* Automatically adjust height to maintain aspect ratio */
+  max-width: 100%; /* Set image width to 100% of button's width */
+  max-height: 100%; /* Set image height to 100% of button's height */
 }
 
 /* Media Query for smaller screens */

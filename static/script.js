@@ -5,8 +5,8 @@ var learning = [];  // Set the learning array to cero
 var drillingMastered = 1; // Set the mastered words loop to the desired number 
 var drillingLearning = 2; // Set the learning words loop to the desired number
 var vocabularyStages = {
-  "easy-stage": "http://localhost:8080/dataset/category/easy-word",
-  "hard-stage": "http://localhost:8080/dataset/category/hard-word",
+  "flinstones-characters": "http://localhost:8080/dataset/category/flinstones-characters",
+  "flinstone-nouns-2": "http://localhost:8080/dataset/category/flinstone-nouns-2",
 };
 
 // Function to fetch dataSet from the API based on stage
@@ -43,7 +43,7 @@ function shuffleArray(array) {
 async function initializeVocabularyBuilder() {
   var currentStage = 0; // Index of current stage
   var stages = Object.keys(vocabularyStages); // Array of stage keys
-
+  console.log("stages lenght:", stages.length);
   async function getNextStageData() {
     if (currentStage < stages.length) {
       var stageKey = stages[currentStage];

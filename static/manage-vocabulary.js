@@ -23,7 +23,7 @@ async function displayDatasetItems() {
         itemElement.classList.add("dataset-item");
 
         const questionElement = document.createElement("p");
-        questionElement.textContent = item.question;
+        questionElement.textContent = "Question: " + item.question;
         itemElement.appendChild(questionElement);
 
         const categoryElement = document.createElement("p");
@@ -40,8 +40,58 @@ async function displayDatasetItems() {
         deleteButton.addEventListener("click", () => deleteDatasetItem(item.id));
         itemElement.appendChild(deleteButton);
 
+        const duplicateButton = document.createElement("button");
+        duplicateButton.textContent = "Duplicate";
+        duplicateButton.addEventListener("click", () => duplicateDatasetItem(item.id));
+        itemElement.appendChild(duplicateButton);
+
+
         datasetContainer.appendChild(itemElement);
     });
+
+     // Populate category filter dropdown
+     const categories = [...new Set(datasetItems.map(item => item.category))];
+     const categoryFilterDropdown = document.getElementById("categoryFilter");
+     categoryFilterDropdown.innerHTML = "<option value=''>All</option>";
+     categories.forEach(category => {
+         const option = document.createElement("option");
+         option.value = category;
+         option.textContent = category;
+         categoryFilterDropdown.appendChild(option);
+     });
+}
+
+// Function to filter dataset items by category
+function filterByCategory() {
+    const categoryFilter = document.getElementById("categoryFilter").value;
+    const datasetItems = document.querySelectorAll(".dataset-item");
+
+    datasetItems.forEach(item => {
+        if (categoryFilter === "" || item.querySelector("p:nth-child(2)").textContent.includes(categoryFilter)) {
+            item.style.display = "block";
+        } else {
+            item.style.display = "none";
+        }
+    });
+}
+
+// Function to duplicate a dataset item
+async function duplicateDatasetItem(id) {
+    try {
+        const response = await fetch(`http://localhost:8080/dataset/${id}/duplicate`, {
+            method: "POST"
+        });
+        if (response.ok) {
+            console.log(`Dataset item with ID ${id} duplicated successfully.`);
+            // Update the displayed dataset items after successful duplication
+            displayDatasetItems();
+        } else {
+            const responseData = await response.text();
+            console.log("Error duplicating dataset item:", responseData);
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
 }
 
 // Function to update a dataset item
