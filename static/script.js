@@ -6,7 +6,9 @@ var drillingMastered = 1; // Set the mastered words loop to the desired number
 var drillingLearning = 2; // Set the learning words loop to the desired number
 var vocabularyStages = {
   "flinstones-characters": "http://localhost:8080/dataset/category/flinstones-characters",
-  "flinstone-nouns-2": "http://localhost:8080/dataset/category/flinstone-nouns-2",
+  "flinstones-present-continuous-fred": "http://localhost:8080/dataset/category/flinstones-present-continuous-fred",
+  "flinstones-present-continuous-wilma": "http://localhost:8080/dataset/category/flinstones-present-continuous-wilma",
+  "flinstones-present-continuous": "http://localhost:8080/dataset/category/flinstones-present-continuous",
 };
 
 // Function to fetch dataSet from the API based on stage
@@ -19,14 +21,15 @@ async function fetchData(stage) {
       question: item.question,
       targetWord: item.targetWord,
       correct: item.correct,
-      answerImages: Object.values(item.answers),
-      answers: Object.keys(item.answers)
+      answerImages: item.answers.map(answer => answer.url), // Extracting URLs from answers array
+      answers: item.answers.map(answer => answer.option), // Extracting options from answers array
     }));
   } catch (error) {
     console.error('Error fetching dataSet:', error);
     return [];
   }
 }
+
 
 // Function to shuffle the dataSet array
 function shuffleArray(array) {

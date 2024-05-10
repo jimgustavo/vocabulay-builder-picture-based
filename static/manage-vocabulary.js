@@ -5,7 +5,19 @@ async function fetchDatasetItems() {
     try {
         const response = await fetch("http://localhost:8080/dataset");
         const data = await response.json();
-        return data;
+        return data.map(item => ({
+            id: item.id,
+            category: item.category,
+            question: item.question,
+            targetWord: item.targetWord,
+            answers: Object.keys(item.answers).map(option => ({
+                //option: option,
+                //url: item.answers[option]
+                option: item.answers[option], // Use item.answers[option] as the option value
+                url: option // Use option as the URL value
+            })),
+            correct: item.correct
+        }));
     } catch (error) {
         console.error("Error fetching dataset items:", error);
         return [];
@@ -30,6 +42,23 @@ async function displayDatasetItems() {
         categoryElement.textContent = "Category: " + item.category;
         itemElement.appendChild(categoryElement);
 
+        // Create a <ul> element
+        const answersList = document.createElement("ul");
+
+        // Iterate over each answer option in the item and create <li> elements
+        item.answers.forEach(answer => {
+            const answerItem = document.createElement("li");
+            answerItem.textContent = `${answer.url}: ${answer.option.option}`; // Access the url property of the answer object
+            answersList.appendChild(answerItem);
+        });
+
+        // Append the <ul> element to the item element
+        itemElement.appendChild(answersList);
+
+        const correctElement = document.createElement("p");
+        correctElement.textContent = "Correct: " + item.correct;
+        itemElement.appendChild(correctElement);
+        
         const updateButton = document.createElement("button");
         updateButton.textContent = "Update";
         updateButton.addEventListener("click", () =>  updateDatasetItem(item.id)); 
@@ -45,6 +74,10 @@ async function displayDatasetItems() {
         duplicateButton.addEventListener("click", () => duplicateDatasetItem(item.id));
         itemElement.appendChild(duplicateButton);
 
+        const scrambleButton = document.createElement("button");
+        scrambleButton.textContent = "Scramble Answers";
+        scrambleButton.addEventListener("click", () => scrambleAnswers(item.id)); 
+        itemElement.appendChild(scrambleButton);
 
         datasetContainer.appendChild(itemElement);
     });
@@ -73,6 +106,24 @@ function filterByCategory() {
             item.style.display = "none";
         }
     });
+}
+
+async function scrambleAnswers(itemId) {
+    try {
+        const response = await fetch(`http://localhost:8080/dataset/${itemId}/scramble`, {
+            method: "POST"
+        });
+        if (response.ok) {
+            console.log(`Answers for dataset item with ID ${itemId} scrambled successfully.`);
+            // Update the displayed dataset items after successful scrambling
+            displayDatasetItems();
+        } else {
+            const responseData = await response.text();
+            console.log("Error scrambling answers:", responseData);
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
 }
 
 // Function to duplicate a dataset item
@@ -140,19 +191,18 @@ async function updateDatasetItem(id) {
         targetWordInput.value = currentItem.targetWord;
         updateForm.appendChild(targetWordInput);
 
-
         // Answers
-        for (let key in currentItem.answers) {
+        currentItem.answers.forEach(answer => {
             const answerLabel = document.createElement("label");
-            answerLabel.textContent = `${key}:`;
+            answerLabel.textContent = `${answer.option}:`;
             updateForm.appendChild(answerLabel);
 
             const answerInput = document.createElement("input");
             answerInput.type = "text";
-            answerInput.value = currentItem.answers[key];
-            answerInput.name = key;
+            answerInput.value = answer.url;
+            answerInput.name = answer.option;
             updateForm.appendChild(answerInput);
-        }
+        });
 
         // Correct Answer
         const correctLabel = document.createElement("label");
@@ -177,14 +227,17 @@ async function updateDatasetItem(id) {
                 category: categoryInput.value,
                 question: questionInput.value,
                 targetWord: targetWordInput.value,
-                answers: {},
+                answers: [],
                 correct: parseInt(correctInput.value)
             };
 
-            // Assign values from answer inputs to formData.answers object
-            for (let key in currentItem.answers) {
-                formData.answers[key] = updateForm.elements[key].value;
-            }
+            // Assign values from answer inputs to formData.answers array
+            currentItem.answers.forEach(answer => {
+                formData.answers.push({
+                    option: answer.option,
+                    url: updateForm.elements[answer.option].value
+                });
+            });
 
             try {
                 const updateResponse = await fetch(`http://localhost:8080/dataset/${id}`, {
@@ -242,16 +295,30 @@ displayDatasetItems();
 document.getElementById("datasetForm").addEventListener("submit", async function(event) {
     event.preventDefault();
 
+    const answers = [
+        {
+            option: document.getElementById("answer1Text").value,
+            url: document.getElementById("answer1Image").value
+        },
+        {
+            option: document.getElementById("answer2Text").value,
+            url: document.getElementById("answer2Image").value
+        },
+        {
+            option: document.getElementById("answer3Text").value,
+            url: document.getElementById("answer3Image").value
+        },
+        {
+            option: document.getElementById("answer4Text").value,
+            url: document.getElementById("answer4Image").value
+        }
+    ];
+
     const formData = {
         category: document.getElementById("category").value,
         question: document.getElementById("question").value,
         targetWord: document.getElementById("targetWord").value,
-        answers: {
-            [document.getElementById("answer1Text").value]: document.getElementById("answer1Image").value,
-            [document.getElementById("answer2Text").value]: document.getElementById("answer2Image").value,
-            [document.getElementById("answer3Text").value]: document.getElementById("answer3Image").value,
-            [document.getElementById("answer4Text").value]: document.getElementById("answer4Image").value
-        },
+        answers: answers,
         correct: parseInt(document.getElementById("correct").value)
     };
 
